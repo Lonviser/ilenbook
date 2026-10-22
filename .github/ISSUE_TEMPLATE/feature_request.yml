@@ -1,0 +1,16 @@
+name: Предложение
+description: Идея для чтения, библиотеки или поиска
+title: '[Идея] '
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Какую задачу хочется решить
+      description: Расскажите о сценарии использования и о том, что мешает сейчас.
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Предлагаемое решение
+      description: Как это могло бы работать?

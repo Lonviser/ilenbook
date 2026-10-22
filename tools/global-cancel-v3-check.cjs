@@ -1,0 +1,5 @@
+async(page)=>{
+ const sources=await page.evaluate(()=>prefs.sources);
+ try{await page.evaluate(()=>{if(state.globalSearch)state.globalSearch.cancelled=true;prefs.sources=[{name:'Медленный',url:'http://10.0.2.2:4191/slow',search:'http://10.0.2.2:4191/slow?q={searchTerms}'}];state.globalSearch=null;state.source=null;state.tab='catalog';renderCatalog()});await page.locator('#global-query').fill('Первый запрос');await page.locator('#global-query').press('Enter');await page.locator('#global-query').fill('Новый запрос');await page.locator('#global-query').press('Enter');await page.locator('#cancel-global').click();await page.waitForTimeout(3500);const result=await page.evaluate(()=>({query:state.globalSearch.query,cancelled:state.globalSearch.cancelled,count:state.globalSearch.visible.length}));if(result.query!=='Новый запрос'||!result.cancelled||result.count!==0)throw Error(JSON.stringify(result));return result}
+ finally{await page.evaluate(sources=>{prefs.sources=sources;state.globalSearch=null;state.source=null;renderCatalog()},sources)}
+}

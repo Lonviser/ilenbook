@@ -1,0 +1,3 @@
+const http=require('http'),fs=require('fs'),path=require('path');
+const root=path.resolve(__dirname,'../app/src/main/assets');
+http.createServer((req,res)=>{const rel=decodeURIComponent(req.url.split('?')[0]);const p=path.resolve(root,'.'+(rel==='/'?'/index.html':rel));if(!p.startsWith(root+path.sep)){res.writeHead(403);res.end();return}fs.readFile(p,(e,data)=>{if(e){res.writeHead(404);res.end();return}res.setHeader('Content-Type',p.endsWith('.js')?'text/javascript; charset=utf-8':p.endsWith('.css')?'text/css':p.endsWith('.json')?'application/json; charset=utf-8':'text/html; charset=utf-8');res.end(data)})}).listen(4189,'127.0.0.1',()=>console.log('Preview: http://127.0.0.1:4189'));

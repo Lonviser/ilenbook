@@ -1,0 +1,28 @@
+name: Ошибка
+description: Сообщить о проблеме в ilenbook
+title: '[Ошибка] '
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Версия ilenbook
+      placeholder: 'Например, 0.7.0'
+    validations:
+      required: true
+  - type: input
+    id: android
+    attributes:
+      label: Версия Android и устройство
+      description: Укажите только сведения, которыми готовы поделиться публично.
+  - type: textarea
+    id: steps
+    attributes:
+      label: Как воспроизвести
+      description: Опишите шаги, ожидаемый и фактический результат. Не прикладывайте пароли, токены, личную библиотеку или приватную ZIP-копию.
+    validations:
+      required: true
+  - type: textarea
+    id: attachment
+    attributes:
+      label: Дополнительная информация
+      description: Для проблемы с каталогом укажите источник, запрос и время. Для файла — формат и небольшой пример, который можно свободно опубликовать.

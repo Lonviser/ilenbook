@@ -1,0 +1,5 @@
+async(page)=>{
+ await page.evaluate(()=>{closeSheet();if(state.reader)exitReader();state.tab='catalog';state.source=null;state.globalSearch=null;render()});await page.locator('#global-query').fill('Каштанка');await page.locator('#global-query').press('Enter');await page.waitForFunction(()=>state.globalSearch.batches.every(b=>b.status!=='loading'),{},{timeout:60000});
+ const result=await page.evaluate(()=>({query:state.globalSearch.query,count:state.globalSearch.visible.length,catalogs:state.globalSearch.batches.map(b=>({name:b.source.name,status:b.status,count:b.entries.length,error:b.error})),covered:state.globalSearch.visible.filter(e=>e.coverUrl).length}));if(!result.catalogs.some(b=>b.name==='Флибуста'&&b.count>0))throw Error(JSON.stringify(result));
+ const withCover=page.locator('[data-global-entry] .cover[data-cover-url]').first();await withCover.scrollIntoViewIfNeeded();await withCover.locator('img').waitFor({timeout:45000});await page.screenshot({path:'output/playwright/ilenbook-global-search.png'});return result;
+}

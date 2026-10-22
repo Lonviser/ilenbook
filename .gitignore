@@ -1,0 +1,14 @@
+.tools/
+build/
+.gradle/
+local.properties
+*.keystore
+node_modules/
+.playwright-cli/
+dist/
+output/
+*.jks
+*.p12
+*.log
+.env
+.env.*

@@ -1,0 +1,1 @@
+async(page)=>{await page.evaluate(()=>{closeSheet();state.tab='library';state.query='';state.filter='all';render();document.querySelector('#books').scrollIntoView({block:'start'})});await page.locator('.book img').first().waitFor();await page.screenshot({path:'docs/ilenbook-library-covers.png'});return {visibleCovers:await page.locator('.book img').count()}}

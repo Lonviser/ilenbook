@@ -1,0 +1,3 @@
+async(page)=>{
+ await page.evaluate(async()=>{closeSheet();if(!state.reader)await openReader('white-nights');translationDialog('book')});await page.locator('#translate-word').click();await page.waitForFunction(()=>!document.querySelector('#translate-word').disabled,{},{timeout:35000});const text=await page.locator('#translation-result').innerText();if(text.includes('Не удалось')||!text.trim())throw Error(text);await page.locator('#translate-word').click();const cached=await page.locator('#translation-result').innerText();if(!cached.includes('из кэша'))throw Error('Cache missing');await page.screenshot({path:'output/playwright/ilenbook-translation.png'});await page.locator('#close-sheet').click();return {word:'book',translation:text,cache:true};
+}

@@ -1,0 +1,21 @@
+package by.list.reader;
+import org.json.*;
+
+public class YandexChecks {
+    static int count;static void check(boolean ok,String message){if(!ok)throw new AssertionError(message);count++;System.out.println("PASS "+message);}
+    static void rejects(String url,String state,String message)throws Exception{boolean failed=false;try{YandexProtocol.callbackToken(url,state);}catch(Exception expected){failed=true;}check(failed,message);}
+    public static void main(String[] args)throws Exception{
+        String state="current-login-random-state-123456789",base="https://"+YandexProtocol.CALLBACK+"/#",token="y0_fixture_not_a_real_secret";
+        check(token.equals(YandexProtocol.callbackToken(base+"access_token="+token+"&state="+state,state)),"OAuth current state accepted");
+        rejects(base+"access_token="+token+"&state=old",state,"Reject stale login");rejects(base+"access_token="+token,state,"Reject missing state");rejects(base+"access_token="+token+"&state="+state+"&state="+state,state,"Reject duplicate state");rejects(base+"access_token="+token+"&access_token="+token+"&state="+state,state,"Reject duplicate token");
+        rejects("http://"+YandexProtocol.CALLBACK+"/#access_token="+token+"&state="+state,state,"Reject insecure callback");rejects("https://"+YandexProtocol.CALLBACK+".evil.test/#access_token="+token+"&state="+state,state,"Reject callback suffix attack");rejects("https://evil.test@"+YandexProtocol.CALLBACK+"/#access_token="+token+"&state="+state,state,"Reject callback credentials");rejects(base+"error=access_denied&state="+state,state,"OAuth denial handled");
+        check(YandexProtocol.trustedApi(YandexProtocol.REST+"/profile"),"REST allowlist");check(YandexProtocol.trustedApi(YandexProtocol.GRAPHQL),"GraphQL allowlist");check(!YandexProtocol.trustedApi("https://api.bookmate.yandex.net.evil.test/api/v5/profile"),"Reject API suffix attack");check(!YandexProtocol.trustedApi("https://token@api.bookmate.yandex.net/api/v5/profile"),"Reject API user info");check(!YandexProtocol.trustedApi("http://api.bookmate.yandex.net/api/v5/profile"),"Reject insecure API");
+        JSONObject row=new JSONObject("{\"state\":\"reading\",\"readingProgress\":42,\"book\":{\"uuid\":\"abc123\",\"title\":\"Книга\",\"authorsObjects\":[{\"name\":\"Автор\"}],\"cover\":{\"large\":\"https://cdn.example.test/cover.png\"}}}");
+        JSONObject card=YandexProtocol.card(row);check(card.getDouble("remoteProgress")==42&&card.getString("remoteState").equals("reading"),"Remote progress stays separate");check(card.getString("author").equals("Автор"),"Camel case authors normalized");check(card.getString("url").equals("https://books.yandex.ru/books/abc123"),"Canonical book link");check(card.getString("coverUrl").startsWith("https://"),"Cover metadata retained");
+        row.remove("readingProgress");check(YandexProtocol.card(row).isNull("remoteProgress"),"Absent progress is not zero");row.put("reading_progress",0);check(YandexProtocol.card(row).getDouble("remoteProgress")==0,"Actual zero progress retained");row.put("reading_progress",999);check(YandexProtocol.card(row).isNull("remoteProgress"),"Invalid progress rejected");
+        check(YandexProtocol.cards(new JSONArray().put(row).put(row)).length()==1,"Repeated library cards deduplicated");row.getJSONObject("book").put("uuid","../../bad");check(YandexProtocol.card(row)==null,"Invalid remote identity skipped");
+        JSONObject quote=new JSONObject("{\"itemUuid\":\"abc123\",\"cfi\":\"epubcfi(/6/2)\",\"content\":\"Цитата\",\"comment\":\"Комментарий\",\"startNodeXPath\":\"/body/p[2]\"}");JSONArray quotes=YandexProtocol.quotes(new JSONArray().put(quote).put(quote));check(quotes.length()==1,"Repeated quotes deduplicated");check(quotes.getJSONObject(0).getString("cfi").startsWith("epubcfi"),"Quote exact locator retained without conversion");quote.put("state","deleted");check(YandexProtocol.quotes(new JSONArray().put(quote)).length()==0,"Deleted remote quotes excluded");
+        check(YandexProtocol.profile(new JSONObject("{\"user\":{\"uuid\":\"id\",\"login\":\"reader\",\"name\":\"Имя\",\"email\":\"private\"}}")).length()==3,"Only needed profile fields exposed");
+        System.out.println(count+" Yandex protocol checks passed");
+    }
+}
