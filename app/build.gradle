@@ -16,7 +16,7 @@ def prepareNetwork = tasks.register('prepareNetwork', Sync) {
 android {
     namespace 'by.list.reader'
     compileSdk 35
-    defaultConfig { applicationId 'by.list.reader'; minSdk 26; targetSdk 35; versionCode 10; versionName '0.7.3' }
+    defaultConfig { applicationId 'by.list.reader'; minSdk 26; targetSdk 35; versionCode 11; versionName '0.7.4' }
     compileOptions { sourceCompatibility JavaVersion.VERSION_1_8; targetCompatibility JavaVersion.VERSION_1_8 }
     sourceSets.main.jniLibs.srcDir layout.buildDirectory.dir('generated/network')
     packagingOptions { jniLibs { useLegacyPackaging = true } }

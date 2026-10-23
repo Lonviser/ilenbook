@@ -36,6 +36,7 @@ public class MainActivity extends Activity {
     private File exportFile;
     private File library;
     private ReleaseSupport release;
+    private AppUpdates updates;
     private YandexAccount yandex;
     private FlibustaConnection flibustaConnection;
     private volatile boolean readingActive;
@@ -45,6 +46,7 @@ public class MainActivity extends Activity {
     @Override public void onCreate(Bundle state) {
         super.onCreate(state); library=new File(getFilesDir(),"books"); library.mkdirs();
         release=new ReleaseSupport(this);
+        updates=new AppUpdates(this);
         yandex=new YandexAccount(this);
         flibustaConnection=new FlibustaConnection(this);
         getWindow().setStatusBarColor(0xfff8f7f2);getWindow().setNavigationBarColor(0xfff8f7f2);
@@ -92,7 +94,7 @@ public class MainActivity extends Activity {
     public class Bridge {
         @JavascriptInterface public String preferences(){return release.preferences();}
         @JavascriptInterface public String persistPreferences(String value){try{release.persist(value);return "";}catch(Exception e){return e.getMessage();}}
-        @JavascriptInterface public void ready(){release.ready();}
+        @JavascriptInterface public void ready(){release.ready();updates.onReady();}
         @JavascriptInterface public void cancelSearch(String group){
             if(group==null||group.isEmpty())return;cancelledSearches.put(group,System.currentTimeMillis());Set<HttpURLConnection> connections=searchConnections.get(group);if(connections!=null)controls.execute(()->{for(HttpURLConnection c:connections)c.disconnect();});
             long cutoff=System.currentTimeMillis()-600000;for(Map.Entry<String,Long> entry:cancelledSearches.entrySet())if(entry.getValue()<cutoff)cancelledSearches.remove(entry.getKey());
@@ -105,7 +107,7 @@ public class MainActivity extends Activity {
             });return; }
             (action.equals("catalogCache")?catalogCacheReads:action.equals("catalog")||action.equals("publicBook")?catalogRequests:action.equals("cover")||action.equals("findCover")?images:io).execute(()->{try {
                 operationGeneration.set(storageGeneration.get());JSONObject p=new JSONObject(payload);requestGroup.set(p.optString("group",""));checkCancelled();Object result;
-                if(yandex.handle(id,action,p)||release.handle(id,action,p))return;
+                if(updates.handle(id,action,p)||yandex.handle(id,action,p)||release.handle(id,action,p))return;
                 switch(action) {
                     case "list": seed(); result=listBooks();break;
                     case "read": result=readBook(p.getString("id"));break;
@@ -213,6 +215,7 @@ public class MainActivity extends Activity {
     }
     @Override protected void onActivityResult(int request,int result,Intent data) {
         super.onActivityResult(request,result,data);
+        if(updates.result(request))return;
         if(release.result(request,result,data))return;
         if(yandex.result(request,result,data))return;
         if(request==101){String exportId=exportRequest;File source=exportFile;exportRequest=null;exportFile=null;if(exportId==null)return;if(result!=RESULT_OK||data==null){reply(exportId,false,null);return;}Uri dest=data.getData();io.execute(()->{try(InputStream in=new FileInputStream(source);OutputStream out=getContentResolver().openOutputStream(dest,"wt")){if(out==null)throw new IOException("Не удалось записать файл");byte[] buf=new byte[8192];int n;while((n=in.read(buf))!=-1)out.write(buf,0,n);reply(exportId,true,null);}catch(Exception e){reply(exportId,null,e.getMessage());}});return;}
@@ -271,7 +274,7 @@ public class MainActivity extends Activity {
             URL url=new URL(current);if(!Arrays.asList("https","http").contains(url.getProtocol()))throw new IOException("Нужен адрес http:// или https://");
             checkCancelled();if(attempt!=null&&attempt.cancelled)throw new IOException("Запрос отменён");HttpURLConnection c=(HttpURLConnection)(proxy==null?url.openConnection():url.openConnection(proxy));String group=requestGroup.get();Set<HttpURLConnection> active=group==null||group.isEmpty()?null:searchConnections.computeIfAbsent(group,k->ConcurrentHashMap.newKeySet());if(active!=null)active.add(c);if(attempt!=null)attempt.connections.add(c);
             boolean flibusta=FlibustaAddress.owns(url),download=limit>5*1024*1024;c.setConnectTimeout(proxy!=null?25000:flibusta?4000:10000);c.setReadTimeout(download?120000:proxy!=null?30000:flibusta?10000:15000);c.setInstanceFollowRedirects(false);
-            c.setRequestProperty("User-Agent","IlenbookReader/0.7.3 (Android; OPDS; personal reader)");c.setRequestProperty("Accept","application/atom+xml, application/epub+zip, application/xml, */*");
+            c.setRequestProperty("User-Agent","IlenbookReader/0.7.4 (Android; OPDS; personal reader)");c.setRequestProperty("Accept","application/atom+xml, application/epub+zip, application/xml, */*");
             try { if(attempt!=null&&attempt.cancelled)throw new IOException("Запрос отменён");int status=c.getResponseCode();if(status>=300&&status<400) { String loc=c.getHeaderField("Location");if(loc==null)throw new IOException("Неверное перенаправление");current=new URL(url,loc).toString();continue; }
                 if(status!=200)throw new IOException("Сервер вернул HTTP "+status+". Проверьте адрес или попробуйте позже.");return BookParser.read(c.getInputStream(),limit);
             }finally{c.disconnect();if(active!=null)active.remove(c);if(attempt!=null)attempt.connections.remove(c);}
@@ -385,7 +388,7 @@ public class MainActivity extends Activity {
     }
     @Override public void onBackPressed(){web.evaluateJavascript("window.handleBack()",r->{if(!"true".equals(r))finish();});}
     @Override protected void onPause(){web.evaluateJavascript("window.pauseReadingSession ? window.pauseReadingSession() : window.persistReading && window.persistReading()",null);super.onPause();}
-    @Override protected void onResume(){super.onResume();if(web!=null)web.evaluateJavascript("window.resumeReadingSession && window.resumeReadingSession()",null);}
+    @Override protected void onResume(){super.onResume();if(updates!=null)updates.foreground();if(web!=null)web.evaluateJavascript("window.resumeReadingSession && window.resumeReadingSession()",null);}
     @Override protected void onNewIntent(Intent intent){super.onNewIntent(intent);setIntent(intent);release.incoming(intent);}
     @Override public boolean dispatchKeyEvent(KeyEvent event){if(readingActive&&(event.getKeyCode()==KeyEvent.KEYCODE_VOLUME_UP||event.getKeyCode()==KeyEvent.KEYCODE_VOLUME_DOWN)&&getPreferences(0).getBoolean("volumePaging",false)){if(event.getAction()==KeyEvent.ACTION_DOWN)web.evaluateJavascript("window.hardwareTurn && window.hardwareTurn("+(event.getKeyCode()==KeyEvent.KEYCODE_VOLUME_DOWN?1:-1)+")",null);return true;}return super.dispatchKeyEvent(event);}
     void background(Runnable r){io.execute(()->{operationGeneration.set(storageGeneration.get());try{r.run();}finally{operationGeneration.remove();}});}
@@ -394,5 +397,5 @@ public class MainActivity extends Activity {
     JSONObject importBytes(byte[] data,String filename,String source)throws Exception{JSONObject b=BookParser.parse(data,filename);b.put("source",source);return saveOriginal(b,data);}
     void event(String type,JSONObject data){runOnUiThread(()->{if(!isFinishing()&&!isDestroyed())web.evaluateJavascript("window.nativeEvent && window.nativeEvent("+JSONObject.quote(type)+","+data.toString()+")",null);});}
     void releaseEvent(JSONObject data){release.event(data);}
-    @Override protected void onDestroy(){flibustaConnection.close();release.close();web.removeJavascriptInterface("Native");web.destroy();io.shutdownNow();images.shutdownNow();controls.shutdownNow();catalogTransports.shutdownNow();catalogCacheReads.shutdownNow();catalogRequests.shutdownNow();super.onDestroy();}
+    @Override protected void onDestroy(){updates.close();flibustaConnection.close();release.close();web.removeJavascriptInterface("Native");web.destroy();io.shutdownNow();images.shutdownNow();controls.shutdownNow();catalogTransports.shutdownNow();catalogCacheReads.shutdownNow();catalogRequests.shutdownNow();super.onDestroy();}
 }

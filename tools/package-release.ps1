@@ -1,4 +1,4 @@
-param([string]$Version='0.7.3')
+param([string]$Version='0.7.4')
 $ErrorActionPreference='Stop'
 $taskRoot=Split-Path $PSScriptRoot
 $taskDist=Join-Path $taskRoot 'dist'

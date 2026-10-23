@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Lonviser/ilenbook/releases/latest"><img alt="Версия" src="https://img.shields.io/badge/версия-0.7.3-286650?style=flat-square"></a>
+  <a href="https://github.com/Lonviser/ilenbook/releases/latest"><img alt="Версия" src="https://img.shields.io/badge/версия-0.7.4-286650?style=flat-square"></a>
   <img alt="Android 8.0 и новее" src="https://img.shields.io/badge/Android-8.0%2B-286650?style=flat-square">
   <img alt="Форматы" src="https://img.shields.io/badge/книги-EPUB%20%C2%B7%20FB2%20%C2%B7%20TXT-526b60?style=flat-square">
   <a href="https://github.com/Lonviser/ilenbook/actions/workflows/checks.yml"><img alt="Сборка и проверки" src="https://github.com/Lonviser/ilenbook/actions/workflows/checks.yml/badge.svg"></a>
@@ -14,7 +14,7 @@
 <p align="center">
   <a href="https://github.com/Lonviser/ilenbook/releases/latest"><strong>Скачать APK</strong></a> ·
   <a href="docs/USER_GUIDE.md">Руководство</a> ·
-  <a href="docs/RELEASE_NOTES_0.7.3.md">Что нового</a> ·
+  <a href="docs/RELEASE_NOTES_0.7.4.md">Что нового</a> ·
   <a href="https://github.com/Lonviser/ilenbook/issues/new/choose">Сообщить об ошибке</a>
 </p>
 
@@ -67,7 +67,7 @@ ilenbook — Android-читалка для личной библиотеки н�
 
 ## Установка
 
-1. Откройте [последний релиз](https://github.com/Lonviser/ilenbook/releases/latest) и скачайте `ilenbook-0.7.3.apk`.
+1. Откройте [последний релиз](https://github.com/Lonviser/ilenbook/releases/latest) и скачайте `ilenbook-0.7.4.apk`.
 2. Откройте APK стандартным установщиком Android. При необходимости разрешите установку из выбранного браузера или файлового менеджера.
 3. При обновлении устанавливайте поверх прежнего APK **без удаления приложения** — пакет и подпись сохраняются.
 4. В **Настройки → Сохранить резервную копию** создайте ZIP и храните его отдельно от приложения.
@@ -94,7 +94,11 @@ node tools/preview.cjs
 
 Предпросмотр: `http://127.0.0.1:4189/`. Нативные операции работают в APK. Ключ владельца не включён в репозиторий: локальная сборка и GitHub Actions создают временную подпись и не могут обновить официальный APK из Releases.
 
-В 0.7.3 проверены компактная панель и управление чтением в браузере и Android-эмуляторе, сохранение места при смене оформления и расчёт оставшегося времени. Стандартные **96 Java-проверок** и **15 проверок модели времени** входят в CI. Физическая читалка и настоящий аккаунт Яндекса ещё требуют проверки. [Панель 0.7.3](docs/VALIDATION_0.7.3.md), [полка 0.7.2](docs/VALIDATION_0.7.2.md), [сеть и чтение 0.7.1](docs/VALIDATION_0.7.1.md).
+В 0.7.4 пройдены **128 Java-проверок**, включая 32 проверки обновлений; 15 проверок модели времени входят в CI. Проверены интерфейс обновлений, настоящая загрузка APK из GitHub и установка через системное подтверждение Android с сохранением семи книг. Физическая читалка ещё требует проверки. [Отчёт 0.7.4](docs/VALIDATION_0.7.4.md).
+
+## Обновления в приложении
+
+С 0.7.4: **Настройки → Обновления**. Автопроверка стабильного релиза GitHub при открытии приложения, необязательное автоскачивание по Wi-Fi, SHA-256 и проверка релизной подписи. Установка подтверждается Android. Первую версию 0.7.4 нужно один раз установить вручную поверх старой. [Как работает обновление](docs/UPDATES.md).
 
 ## Устройство проекта
 

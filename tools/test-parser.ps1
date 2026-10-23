@@ -24,3 +24,7 @@ if($LASTEXITCODE){throw 'Public catalog checks failed'}
 if($LASTEXITCODE){throw 'Flibusta test compilation failed'}
 & "$JdkPath\bin\java.exe" -cp $classes by.list.reader.FlibustaChecks
 if($LASTEXITCODE){throw 'Flibusta routing checks failed'}
+& "$JdkPath\bin\javac.exe" --release 8 -encoding UTF-8 -classpath $jsonJar -d $classes "$root\app\src\main\java\by\list\reader\UpdatePolicy.java" "$PSScriptRoot\UpdateChecks.java"
+if($LASTEXITCODE){throw 'Update check compilation failed'}
+& "$JdkPath\bin\java.exe" -cp "$classes;$jsonJar" by.list.reader.UpdateChecks
+if($LASTEXITCODE){throw 'Update checks failed'}
