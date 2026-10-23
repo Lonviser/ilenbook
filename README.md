@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Lonviser/ilenbook/releases/latest"><img alt="Версия" src="https://img.shields.io/badge/версия-0.7.2-286650?style=flat-square"></a>
+  <a href="https://github.com/Lonviser/ilenbook/releases/latest"><img alt="Версия" src="https://img.shields.io/badge/версия-0.7.3-286650?style=flat-square"></a>
   <img alt="Android 8.0 и новее" src="https://img.shields.io/badge/Android-8.0%2B-286650?style=flat-square">
   <img alt="Форматы" src="https://img.shields.io/badge/книги-EPUB%20%C2%B7%20FB2%20%C2%B7%20TXT-526b60?style=flat-square">
   <a href="https://github.com/Lonviser/ilenbook/actions/workflows/checks.yml"><img alt="Сборка и проверки" src="https://github.com/Lonviser/ilenbook/actions/workflows/checks.yml/badge.svg"></a>
@@ -14,7 +14,7 @@
 <p align="center">
   <a href="https://github.com/Lonviser/ilenbook/releases/latest"><strong>Скачать APK</strong></a> ·
   <a href="docs/USER_GUIDE.md">Руководство</a> ·
-  <a href="docs/RELEASE_NOTES_0.7.2.md">Что нового</a> ·
+  <a href="docs/RELEASE_NOTES_0.7.3.md">Что нового</a> ·
   <a href="https://github.com/Lonviser/ilenbook/issues/new/choose">Сообщить об ошибке</a>
 </p>
 
@@ -34,7 +34,7 @@ ilenbook — Android-читалка для личной библиотеки н�
 <p align="center">
   <img src="docs/assets/reader.png" alt="Чтение: оглавление без разрыва слова, проценты книги и главы" width="280">
 </p>
-<p align="center"><sub>Панель чтения в 0.7.1: проценты и оставшееся время книги и главы.</sub></p>
+<p align="center"><sub>Компактная панель чтения в 0.7.3: высота 48 вместо 76, проценты, время и страницы сохранены.</sub></p>
 
 ## Возможности
 
@@ -67,7 +67,7 @@ ilenbook — Android-читалка для личной библиотеки н�
 
 ## Установка
 
-1. Откройте [последний релиз](https://github.com/Lonviser/ilenbook/releases/latest) и скачайте `ilenbook-0.7.2.apk`.
+1. Откройте [последний релиз](https://github.com/Lonviser/ilenbook/releases/latest) и скачайте `ilenbook-0.7.3.apk`.
 2. Откройте APK стандартным установщиком Android. При необходимости разрешите установку из выбранного браузера или файлового менеджера.
 3. При обновлении устанавливайте поверх прежнего APK **без удаления приложения** — пакет и подпись сохраняются.
 4. В **Настройки → Сохранить резервную копию** создайте ZIP и храните его отдельно от приложения.
@@ -94,7 +94,7 @@ node tools/preview.cjs
 
 Предпросмотр: `http://127.0.0.1:4189/`. Нативные операции работают в APK. Ключ владельца не включён в репозиторий: локальная сборка и GitHub Actions создают временную подпись и не могут обновить официальный APK из Releases.
 
-В выпуске проверены **96 Java-проверок** парсинга, архива, протокола и каталогов, **15 проверок расчёта времени**, интерфейс в браузере и Android-эмуляторе, сохранение настроек, настоящие поиски, обложки и скачивание русской книги из Флибусты напрямую и через Snowflake. Физическая читалка и настоящий аккаунт Яндекса ещё требуют проверки. [Проверки полки 0.7.2](docs/VALIDATION_0.7.2.md), [сеть и чтение 0.7.1](docs/VALIDATION_0.7.1.md).
+В 0.7.3 проверены компактная панель и управление чтением в браузере и Android-эмуляторе, сохранение места при смене оформления и расчёт оставшегося времени. Стандартные **96 Java-проверок** и **15 проверок модели времени** входят в CI. Физическая читалка и настоящий аккаунт Яндекса ещё требуют проверки. [Панель 0.7.3](docs/VALIDATION_0.7.3.md), [полка 0.7.2](docs/VALIDATION_0.7.2.md), [сеть и чтение 0.7.1](docs/VALIDATION_0.7.1.md).
 
 ## Устройство проекта
 
