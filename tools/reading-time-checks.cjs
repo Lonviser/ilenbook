@@ -1,0 +1,22 @@
+'use strict';
+const assert=require('node:assert/strict');
+const model=require('../app/src/main/assets/reading-time-model.js');
+let passed=0;
+function check(name,run){run();passed++;console.log('PASS '+name)}
+const book={lengths:[10000,20000],before:[0,10000],total:30000};
+check('Initial estimate uses 1200 characters per minute',()=>{assert.equal(model.pace().cpm,1200);assert.equal(model.pace().personal,false)});
+check('Unequal chapters use remaining text volume',()=>{const r=model.estimate(book,0,.5);assert.equal(r.bookMinutes,21);assert.equal(r.chapterMinutes,5)});
+check('Last chapter excludes previous chapters',()=>{assert.equal(model.estimate(book,1,.5).bookMinutes,9)});
+check('End of book has no remaining time',()=>{const r=model.estimate(book,1,1);assert.equal(r.bookMinutes,0);assert.equal(r.chapterMinutes,0)});
+check('Offsets and chapters stay within bounds',()=>{assert.equal(model.estimate(book,-5,-2).bookMinutes,25);assert.equal(model.estimate(book,99,5).bookMinutes,0)});
+check('Empty books return a finite zero',()=>{assert.equal(model.estimate({},0,0).bookMinutes,0)});
+check('Prefix cache and plain lengths give identical results',()=>{assert.deepEqual(model.estimate(book,0,.5),model.estimate({lengths:book.lengths},0,.5))});
+check('Too few samples retain the initial speed',()=>{const s={};model.addSample(s,600,60);model.addSample(s,600,60);assert.equal(model.pace(s).personal,false)});
+check('Enough active reading enables personal speed',()=>{const s={};for(let i=0;i<3;i++)model.addSample(s,600,60);assert.equal(model.pace(s).personal,true);assert.equal(model.pace(s).cpm,600);assert.equal(model.estimate(book,0,.5,s).bookMinutes,42)});
+check('Speed is weighted by duration',()=>{const s={};for(const [c,t]of [[600,60],[1200,60],[600,120]])model.addSample(s,c,t);assert.equal(model.pace(s).cpm,600)});
+check('Quick flips, pauses and implausible speeds are rejected',()=>{const s={};for(const [c,t]of [[500,1],[500,181],[0,60],[-500,60],[Infinity,60],[500,NaN],[10000,4],[1,60]])assert.equal(model.addSample(s,c,t),false);assert.equal(model.pace(s).samples,0)});
+check('Disabled statistics neither collect nor use personal speed',()=>{const s={};for(let i=0;i<3;i++)model.addSample(s,600,60);s.enabled=false;assert.equal(model.addSample(s,600,60),false);assert.equal(model.pace(s).personal,false);assert.equal(model.pace(s).cpm,1200)});
+check('History is bounded and ignores invalid persisted samples',()=>{const s={pace:{samples:[null,{characters:0,seconds:60}]}};for(let i=0;i<60;i++)model.addSample(s,600,60);assert.equal(s.pace.samples.length,40);assert.equal(model.pace(s).samples,40)});
+check('Short positive durations round up to one minute',()=>{assert.equal(model.estimate({lengths:[1]},0,0).bookMinutes,1)});
+check('Very long books use compact hours',()=>{assert.equal(model.label(999),'999 мин');assert.equal(model.label(1000),'17 ч')});
+console.log(passed+' reading time checks passed');

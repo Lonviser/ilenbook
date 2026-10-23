@@ -30,6 +30,11 @@ jobs:
             node --check $_.FullName
             if ($LASTEXITCODE) { throw "Syntax check failed: $($_.Name)" }
           }
+      - name: Reading time model checks
+        shell: pwsh
+        run: |
+          node tools/reading-time-checks.cjs
+          if ($LASTEXITCODE) { throw 'Reading time checks failed' }
       - name: Parser, backup, protocol and catalog tests
         shell: pwsh
         run: ./tools/test-parser.ps1 -JdkPath $env:JAVA_HOME

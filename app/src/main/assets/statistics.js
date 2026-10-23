@@ -9,7 +9,7 @@ function statsCanRead(){return !!state.reader&&!state.reader.chrome&&!overlay.ch
 function statsAddInterval(start,end,bookId){while(start<end){const midnight=new Date(start);midnight.setHours(24,0,0,0);const next=Math.min(end,midnight.getTime()),seconds=(next-start)/1000,d=statsDay(dayKey(start));d.seconds+=seconds;d.books[bookId]=(d.books[bookId]||0)+seconds;start=next}}
 function statsFlush(now=Date.now()){
  if(!statsSession)return;const s=statsSession,end=Math.min(now,s.lastActivity+STATS_IDLE_MS);
- if(s.active&&now>=s.lastTick&&now-s.lastTick<120000&&end>s.lastTick)statsAddInterval(s.lastTick,end,s.bookId);
+ if(s.active&&now>=s.lastTick&&now-s.lastTick<120000&&end>s.lastTick){statsAddInterval(s.lastTick,end,s.bookId);s.readingSeconds=(s.readingSeconds||0)+(end-s.lastTick)/1000;}
  s.lastTick=now;
 }
 function statsSetActive(active){statsFlush();if(statsSession){statsSession.active=!!active;statsSession.lastTick=Date.now()}}
