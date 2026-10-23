@@ -29,14 +29,17 @@ function loadChapter(index,position=0){
  $('#article').innerHTML=chapterReadingHTML(c);r.blocks=blockNodes();r.blocks.forEach((p,i)=>p.dataset.paragraph=i);clearSelection();
  $('#article').querySelectorAll('a[data-target]').forEach(a=>a.onclick=e=>{e.preventDefault();openBookLink(a.dataset.target)});
  $('#article').querySelectorAll('img').forEach(img=>img.onload=()=>{clearTimeout(r.imageTimer);r.imageTimer=setTimeout(()=>{if(state.reader===r)layoutReader(r.settingsAnchor||r.liveAnchor||position)},80)});
- requestAnimationFrame(()=>layoutReader(position));document.fonts?.ready.then(()=>{if(state.reader===r&&r.chapter===Number(index))layoutReader(r.settingsAnchor||r.liveAnchor||position)});
+ const chapterVersion=r.navigationVersion,s=effectiveReadingSettings(),family=(FONT_CHOICES.find(f=>f.id===s.font)||FONT_CHOICES[0]).css;
+ r.chapterFontsPending=!!document.fonts;
+ requestAnimationFrame(()=>{if(state.reader===r&&r.navigationVersion===chapterVersion)layoutReader(position)});
+ if(document.fonts)document.fonts.load(s.size+'px '+family).catch(()=>{}).then(()=>{if(state.reader!==r||r.navigationVersion!==chapterVersion)return;r.chapterFontsPending=false;requestAnimationFrame(()=>{if(state.reader===r&&r.navigationVersion===chapterVersion)layoutReader(position)})});
 }
 function layoutReader(position){
  const r=state.reader,a=$('#reading-area'),article=$('#article');if(!r||!a||!article||a.clientHeight<20)return;r.restoring=true;article.style.transform='none';
  const s=effectiveReadingSettings(),margin=s.margin,width=Math.max(100,a.clientWidth-margin*2),height=Math.max(80,a.clientHeight-32);r.stride=width+margin*2;
  if(s.readingMode!=='scroll'){article.style.width=width+'px';article.style.height=height+'px';article.style.columnWidth=width+'px';article.style.columnGap=(margin*2)+'px';article.style.columnFill='auto';r.pages=Math.max(1,Math.round((article.scrollWidth+margin*2)/r.stride));r.page=typeof position==='number'?Math.round(position*(r.pages-1)):pageForAnchor(position);r.page=Math.max(0,Math.min(r.pages-1,r.page));article.style.transform=`translateX(${-r.page*r.stride}px)`;a.scrollTop=0;}
  else{article.style.width='';article.style.height='auto';article.style.columnWidth='auto';article.style.columnGap='normal';r.pages=1;if(position&&typeof position==='object')restoreScrollAnchor(position);else a.scrollTop=(Number(position)||0)*Math.max(0,a.scrollHeight-a.clientHeight)}
- r.restoring=false;updateReaderProgress();persistReading();
+ r.restoring=!!r.chapterFontsPending;updateReaderProgress();persistReading();
 }
 function textRange(block,char=0){const walker=document.createTreeWalker(block,NodeFilter.SHOW_TEXT);let n,remaining=Math.max(0,char);while(n=walker.nextNode()){if(remaining<=n.textContent.length){const range=document.createRange();range.setStart(n,remaining);range.setEnd(n,Math.min(n.textContent.length,remaining+1));return range}remaining-=n.textContent.length}const range=document.createRange();range.selectNodeContents(block);range.collapse(true);return range}
 function resolvedAnchor(anchor){const r=state.reader;let index=Math.max(0,Math.min(r.blocks.length-1,Number(anchor?.block??anchor?.paragraph)||0));let block=r.blocks[index];if(!block)return null;let char=Math.max(0,Math.min(block.textContent.length,Number(anchor?.char)||0));if(anchor?.excerpt&&block.textContent.slice(char,char+anchor.excerpt.length)!==anchor.excerpt){const found=r.blocks.findIndex(b=>b.textContent.includes(anchor.excerpt));if(found>=0){index=found;block=r.blocks[index];char=block.textContent.indexOf(anchor.excerpt)}}return {block,index,char}}
@@ -52,7 +55,16 @@ function captureReadingAnchor(){
  }
  return {block:0,char:0,excerpt:r.blocks[0].textContent.slice(0,40)};
 }
-function updateReaderProgress(){const r=state.reader,a=$('#reading-area');if(!r||!a)return;const m=meta(r.book.id);m.chapter=r.chapter;m.offset=effectiveReadingSettings().readingMode==='scroll'?(a.scrollHeight>a.clientHeight?a.scrollTop/(a.scrollHeight-a.clientHeight):0):(r.pages>1?r.page/(r.pages-1):0);const source=state.books.find(b=>b.id===r.book.id)||r.book;$('#reading-percent').textContent='≈ '+percent(source)+'% · '+(r.chapter+1)+'/'+r.book.chapters.length+' глав';$('#page-label').textContent=effectiveReadingSettings().readingMode==='scroll'?'Прокрутка · '+r.book.chapters[r.chapter].title:`Стр. ${r.page+1} из ${r.pages} в главе`;$('#prev-page').disabled=r.chapter===0&&(effectiveReadingSettings().readingMode==='scroll'?a.scrollTop<=0:r.page===0)}
+function updateReaderProgress(){
+ const r=state.reader,a=$('#reading-area');if(!r||!a)return;const m=meta(r.book.id),scroll=effectiveReadingSettings().readingMode==='scroll';
+ m.chapter=r.chapter;m.offset=Math.max(0,Math.min(1,scroll?(a.scrollHeight>a.clientHeight?a.scrollTop/(a.scrollHeight-a.clientHeight):0):(r.pages>1?r.page/(r.pages-1):0)));
+ if(!r.progressBook){let total=0;const lengths=r.book.chapters.map(c=>(c.text||'').length),before=lengths.map(length=>{const previous=total;total+=length;return previous});r.progressBook={lengths,before,total:total||1};}
+ const progress=r.progressBook,bookPercent=Math.round(Math.max(0,Math.min(1,(progress.before[r.chapter]+progress.lengths[r.chapter]*m.offset)/progress.total))*100),chapterPercent=Math.round(m.offset*100);
+ $('#reading-percent').textContent=`Книга ≈ ${bookPercent}% · Глава ${chapterPercent}%`;
+ $('#page-label').textContent=`Гл. ${r.chapter+1}/${r.book.chapters.length} · ${scroll?'Прокрутка':`Стр. ${r.page+1}/${r.pages}`}`;
+ $('#reader-menu-toggle').title=`Прочитано примерно ${bookPercent}% книги и ${chapterPercent}% текущей главы. ${r.book.chapters[r.chapter].title}`;
+ $('#prev-page').disabled=r.chapter===0&&(scroll?a.scrollTop<=0:r.page===0);
+}
 function persistReading(){const r=state.reader;if(!r||r.restoring||!$('#reading-area'))return;updateReaderProgress();const m=meta(r.book.id);m.anchor=captureReadingAnchor();r.liveAnchor=m.anchor;m.lastRead=Date.now();save()}
 window.persistReading=persistReading;
 function exitReader(){persistReading();clearSelection();const r=state.reader;if(r){clearTimeout(r.imageTimer);clearTimeout(r.saveTimer)}state.reader=null;closeSheet();$('.reader')?.remove();window.Native?.readerMode(false,false);render();window.scrollTo(0,state.scrolls[state.tab]||0)}

@@ -10,7 +10,15 @@
 
 Сохранённый через встроенный поиск текст Викитеки содержит ссылку на ревизию страницы и указание на её сведения об авторстве и использовании. Текст отдельных страниц не объявляется полной электронной копией многостраничного произведения.
 
-## Сервисы
+## Резервное подключение Флибусты
+
+В APK включены неизменённые исполняемые файлы [Briar Tor Android 0.4.9.14](https://repo.maven.apache.org/maven2/org/briarproject/tor-android/0.4.9.14/) и [Lyrebird Android 0.6.2](https://repo.maven.apache.org/maven2/org/briarproject/lyrebird-android/0.6.2/). Они запускаются отдельными дочерними процессами. Tor и Lyrebird используют BSD и другие условия своих зависимостей; собственный код ilenbook с ними не линкуется. Полные уведомления компонентов и их зависимостей находятся в `app/src/main/assets/licenses/` и включены в APK.
+
+Полные соответствующие исходники, зависимости и инструкции сборки опубликованы авторами как `*-sources.jar` в тех же каталогах Maven Central; копии этих архивов приложены к релизу ilenbook. Версии и SHA-256 бинарных и исходных архивов зафиксированы в `tools/network-dependencies.json`. Собственная сборка этих компонентов не выполнялась; библиотеки Guardian Project из исследовательских проб в APK не включены.
+
+Адрес onion получен из перенаправления проверенного HTTPS-сервера `flibusta.is`. Параметры мостов Snowflake взяты из [встроенной конфигурации Orbot](https://github.com/guardianproject/orbot-android/blob/master/app/src/main/assets/builtin-bridges.json) с вариантом AMP, описанным в [коде Orbot](https://github.com/guardianproject/orbot-android/blob/master/app/src/main/java/org/torproject/android/service/circumvention/Transport.kt). Настройки запросов не предоставляют устройству роль узла Tor или прокси Snowflake для других пользователей.
+
+## Каталоги и другие сервисы
 
 Каталоги Флибуста, Project Gutenberg, Викитека, Internet Archive, Wolne Lektury и Ebooks libres et gratuits принадлежат своим владельцам. Приложение использует публикуемые OPDS/API. Для Internet Archive отбираются записи с объявленной свободной лицензией и проверяется доступность файла; ilenbook не является владельцем каталога или его файлов.
 

@@ -20,6 +20,7 @@ Run-Tool "$bt\aapt2.exe" @('link','-o',"$work\base.apk",'-I',$androidJar,'--mani
 $sources = @(Get-ChildItem -LiteralPath "$PSScriptRoot\app\src\main\java" -Filter '*.java' -Recurse | ForEach-Object { $_.FullName })
 Run-Tool "$JdkPath\bin\javac.exe" (@('-encoding','UTF-8','--release','8','-classpath',$androidJar,'-d',"$work\classes") + $sources)
 Add-Type -AssemblyName System.IO.Compression.FileSystem
+& "$PSScriptRoot\tools\prepare-network.ps1" -Destination "$work\network-libs"
 if (Test-Path -LiteralPath "$work\classes.jar") { [System.IO.File]::Delete("$work\classes.jar") }
 [System.IO.Compression.ZipFile]::CreateFromDirectory("$work\classes", "$work\classes.jar")
 Run-Tool "$JdkPath\bin\java.exe" @('-cp',"$bt\lib\d8.jar",'com.android.tools.r8.D8','--lib',$androidJar,'--min-api','26','--output',"$work\dex","$work\classes.jar")
@@ -27,6 +28,10 @@ Copy-Item -LiteralPath "$work\base.apk" -Destination "$work\unsigned.apk" -Force
 $zip = [System.IO.Compression.ZipFile]::Open("$work\unsigned.apk", [System.IO.Compression.ZipArchiveMode]::Update)
 try {
     [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, "$work\dex\classes.dex", 'classes.dex') | Out-Null
+    foreach($nativeLibrary in Get-ChildItem -LiteralPath "$work\network-libs" -Recurse -File){
+        $nativeName='lib/'+$nativeLibrary.Directory.Name+'/'+$nativeLibrary.Name
+        [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip,$nativeLibrary.FullName,$nativeName,[System.IO.Compression.CompressionLevel]::Optimal) | Out-Null
+    }
     # Windows AAPT2 may write nested asset names with backslashes. AssetManager needs '/'.
     foreach ($entry in @($zip.Entries)) {
         if ($entry.FullName.Contains('\')) {

@@ -1,0 +1,4 @@
+[
+  {"name":"tor-android","version":"0.4.9.14","sha256":"3c282777bdcd3b55dcc8c8d5294af753dd8ed32b832f12e82128eed6f481d2ed","sourceSha256":"e4b067081d97cc60bd15a646435a80719465607a9977e8220d3a13698aeaed09"},
+  {"name":"lyrebird-android","version":"0.6.2","sha256":"2d70a38393ee6f1760a65a33dd971210efa06b5a355ebea829196b61fd9fd11a","sourceSha256":"b4c370a58da4b4e7e69ad071d92ec2f5dd277f75980be912d02993732e60bd08"}
+]

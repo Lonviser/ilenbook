@@ -20,3 +20,7 @@ if($LASTEXITCODE){throw 'Fast fetch checks failed'}
 
 & "$JdkPath\bin\java.exe" -cp "$classes;$jsonJar" by.list.reader.PublicCatalogChecks
 if($LASTEXITCODE){throw 'Public catalog checks failed'}
+& "$JdkPath\bin\javac.exe" --release 8 -encoding UTF-8 -d $classes "$root\app\src\main\java\by\list\reader\FlibustaAddress.java" "$PSScriptRoot\FlibustaChecks.java"
+if($LASTEXITCODE){throw 'Flibusta test compilation failed'}
+& "$JdkPath\bin\java.exe" -cp $classes by.list.reader.FlibustaChecks
+if($LASTEXITCODE){throw 'Flibusta routing checks failed'}

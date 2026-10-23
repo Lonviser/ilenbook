@@ -37,6 +37,7 @@ public class MainActivity extends Activity {
     private File library;
     private ReleaseSupport release;
     private YandexAccount yandex;
+    private FlibustaConnection flibustaConnection;
     private volatile boolean readingActive;
     private final java.util.concurrent.atomic.AtomicLong storageGeneration=new java.util.concurrent.atomic.AtomicLong();
     private final ThreadLocal<Long> operationGeneration=new ThreadLocal<>();
@@ -45,6 +46,7 @@ public class MainActivity extends Activity {
         super.onCreate(state); library=new File(getFilesDir(),"books"); library.mkdirs();
         release=new ReleaseSupport(this);
         yandex=new YandexAccount(this);
+        flibustaConnection=new FlibustaConnection(this);
         getWindow().setStatusBarColor(0xfff8f7f2);getWindow().setNavigationBarColor(0xfff8f7f2);
         web=new ReaderWebView(this); web.setBackgroundColor(0xfff8f7f2);
         WebView.setWebContentsDebuggingEnabled((getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE)!=0);
@@ -110,6 +112,9 @@ public class MainActivity extends Activity {
                     case "delete": synchronized(MainActivity.this){if(!bookFile(p.getString("id")).delete())throw new IOException("Не удалось удалить книгу");new File(getFilesDir(),"originals/"+p.getString("id")).delete();}result=true;break;
                     case "catalog": result=catalog(p.getString("url"));break;
                     case "catalogCache": result=readCachedCatalog(p.getString("url"),24L*60*60*1000);break;
+                    case "flibustaStatus": result=flibustaConnection.status();break;
+                    case "flibustaConfigure": result=flibustaConnection.configure(p.getString("mode"));break;
+                    case "flibustaTest": {long started=System.currentTimeMillis();JSONObject feed=catalogNetwork("https://flibusta.is/opds");result=flibustaConnection.status().put("title",feed.getString("title")).put("elapsedMs",System.currentTimeMillis()-started);break;}
                     case "publicBook": {
                         String address=p.getString("url"),provider=PublicCatalogs.detailsProvider(address);JSONObject body=new JSONObject(new String(fetch(address,5*1024*1024),StandardCharsets.UTF_8));
                         if(provider.equals("archive"))result=PublicCatalogs.archiveDetails(address,body);
@@ -225,25 +230,48 @@ public class MainActivity extends Activity {
         }catch(Exception ignored){}
     }
     byte[] fetch(String address,int limit)throws Exception {
-        checkCancelled();URL url=new URL(address);boolean flibusta=url.getHost().equalsIgnoreCase("flibusta.is")&&url.getProtocol().equals("https");
+        if(FlibustaAddress.owns(new URL(address)))return fetchFlibusta(address,limit,false);
+        return fetchDirect(address,limit);
+    }
+    private byte[] fetchFlibusta(String address,int limit,boolean catalog)throws Exception {
+        checkCancelled();String mode=flibustaConnection.mode();Exception reserveFailure=null;
+        if(flibustaConnection.preferReserve())try{return fetchReserve(address,limit,catalog);}catch(Exception error){checkCancelled();if(!mode.equals("auto"))throw error;reserveFailure=error;}
+        try{byte[] result=catalog?fetchCatalogDirect(address):fetchDirect(address,limit);flibustaConnection.directWorked();return result;}catch(Exception directError){
+            flibustaConnection.directFailed(directError);
+            checkCancelled();if(mode.equals("direct"))throw new IOException("Флибуста не отвечает напрямую. Откройте «Подключение Флибусты» и выберите автоматический режим или Snowflake.",directError);
+            if(reserveFailure!=null)throw reserveFailure;return fetchReserve(address,limit,catalog);
+        }
+    }
+    private byte[] fetchReserve(String address,int limit,boolean catalog)throws Exception {
+        Proxy proxy=flibustaConnection.proxy(this::checkCancelled);
+        try {byte[] result=fetchOnce(FlibustaAddress.reserveAddress(address),limit,null,proxy);
+        if(catalog){Element root=BookParser.xml(result).getDocumentElement();if(!Arrays.asList("feed","entry").contains(BookParser.name(root)))throw new IOException("Флибуста не вернула OPDS-каталог");}
+        flibustaConnection.worked();return result;
+        }finally{flibustaConnection.finished();}
+    }
+    private byte[] fetchDirect(String address,int limit)throws Exception {
+        checkCancelled();URL url=new URL(address);boolean flibusta=FlibustaAddress.owns(url)&&url.getProtocol().equals("https");String plain="http://"+url.getHost()+url.getFile();
         if(flibusta&&System.currentTimeMillis()-getPreferences(0).getLong("flibustaHttpWorks",0)<30*60*1000L){
-            try{return fetchOnce("http://flibusta.is"+url.getFile(),limit);}catch(IOException error){checkCancelled();getPreferences(0).edit().remove("flibustaHttpWorks").apply();}
+            try{return fetchOnce(plain,limit);}catch(IOException error){checkCancelled();getPreferences(0).edit().remove("flibustaHttpWorks").apply();}
         }
         try{return fetchOnce(address,limit);}catch(IOException first){
             checkCancelled();
-            if(flibusta){byte[] result=fetchOnce("http://flibusta.is"+url.getFile(),limit);getPreferences(0).edit().putLong("flibustaHttpWorks",System.currentTimeMillis()).apply();return result;}
+            if(flibusta){byte[] result=fetchOnce(plain,limit);getPreferences(0).edit().putLong("flibustaHttpWorks",System.currentTimeMillis()).apply();return result;}
             throw first;
         }
     }
     private void checkCancelled()throws IOException{String group=requestGroup.get();if(group!=null&&cancelledSearches.containsKey(group))throw new IOException("Поиск отменён");}
     private byte[] fetchOnce(String address,int limit)throws Exception {return fetchOnce(address,limit,null);}
-    private byte[] fetchOnce(String address,int limit,CatalogAttempt attempt)throws Exception {
-        String current=address;
+    private byte[] fetchOnce(String address,int limit,CatalogAttempt attempt)throws Exception {return fetchOnce(address,limit,attempt,null);}
+    private byte[] fetchOnce(String address,int limit,CatalogAttempt attempt,Proxy proxy)throws Exception {
+        String current=address;URL initial=new URL(address);boolean usePlain=proxy==null&&FlibustaAddress.owns(initial)&&(initial.getProtocol().equals("http")||System.currentTimeMillis()-getPreferences(0).getLong("flibustaHttpWorks",0)<30*60*1000L);
         for(int hop=0;hop<6;hop++) {
+            if(proxy!=null)current=FlibustaAddress.reserveAddress(current);
+            else if(usePlain){URL hopUrl=new URL(current);if(FlibustaAddress.owns(hopUrl))current="http://"+hopUrl.getHost()+hopUrl.getFile();}
             URL url=new URL(current);if(!Arrays.asList("https","http").contains(url.getProtocol()))throw new IOException("Нужен адрес http:// или https://");
-            checkCancelled();if(attempt!=null&&attempt.cancelled)throw new IOException("Запрос отменён");HttpURLConnection c=(HttpURLConnection)url.openConnection();String group=requestGroup.get();Set<HttpURLConnection> active=group==null||group.isEmpty()?null:searchConnections.computeIfAbsent(group,k->ConcurrentHashMap.newKeySet());if(active!=null)active.add(c);if(attempt!=null)attempt.connections.add(c);
-            boolean flibusta=url.getHost().equalsIgnoreCase("flibusta.is");c.setConnectTimeout(flibusta?4000:10000);c.setReadTimeout(flibusta?10000:15000);c.setInstanceFollowRedirects(false);
-            c.setRequestProperty("User-Agent","IlenbookReader/0.7 (Android; OPDS; personal reader)");c.setRequestProperty("Accept","application/atom+xml, application/epub+zip, application/xml, */*");
+            checkCancelled();if(attempt!=null&&attempt.cancelled)throw new IOException("Запрос отменён");HttpURLConnection c=(HttpURLConnection)(proxy==null?url.openConnection():url.openConnection(proxy));String group=requestGroup.get();Set<HttpURLConnection> active=group==null||group.isEmpty()?null:searchConnections.computeIfAbsent(group,k->ConcurrentHashMap.newKeySet());if(active!=null)active.add(c);if(attempt!=null)attempt.connections.add(c);
+            boolean flibusta=FlibustaAddress.owns(url),download=limit>5*1024*1024;c.setConnectTimeout(proxy!=null?25000:flibusta?4000:10000);c.setReadTimeout(download?120000:proxy!=null?30000:flibusta?10000:15000);c.setInstanceFollowRedirects(false);
+            c.setRequestProperty("User-Agent","IlenbookReader/0.7.1 (Android; OPDS; personal reader)");c.setRequestProperty("Accept","application/atom+xml, application/epub+zip, application/xml, */*");
             try { if(attempt!=null&&attempt.cancelled)throw new IOException("Запрос отменён");int status=c.getResponseCode();if(status>=300&&status<400) { String loc=c.getHeaderField("Location");if(loc==null)throw new IOException("Неверное перенаправление");current=new URL(url,loc).toString();continue; }
                 if(status!=200)throw new IOException("Сервер вернул HTTP "+status+". Проверьте адрес или попробуйте позже.");return BookParser.read(c.getInputStream(),limit);
             }finally{c.disconnect();if(active!=null)active.remove(c);if(attempt!=null)attempt.connections.remove(c);}
@@ -257,8 +285,12 @@ public class MainActivity extends Activity {
         void cancel(){cancelled=true;if(!connections.isEmpty())try{controls.execute(()->{for(HttpURLConnection c:connections)c.disconnect();});}catch(RejectedExecutionException ignored){}}
     }
     private byte[] fetchCatalogBytes(String address)throws Exception{
-        URL url=new URL(address);if(!url.getHost().equalsIgnoreCase("flibusta.is")||!url.getProtocol().equals("https")||url.getPort()!=-1)return fetch(address,5*1024*1024);
-        if(System.currentTimeMillis()-getPreferences(0).getLong("flibustaHttpWorks",0)<30*60*1000L)return fetch(address,5*1024*1024);
+        if(FlibustaAddress.owns(new URL(address)))return fetchFlibusta(address,5*1024*1024,true);
+        return fetchCatalogDirect(address);
+    }
+    private byte[] fetchCatalogDirect(String address)throws Exception{
+        URL url=new URL(address);if(!url.getHost().equalsIgnoreCase("flibusta.is")||!url.getProtocol().equals("https")||url.getPort()!=-1)return fetchDirect(address,5*1024*1024);
+        if(System.currentTimeMillis()-getPreferences(0).getLong("flibustaHttpWorks",0)<30*60*1000L)return fetchDirect(address,5*1024*1024);
         String group=requestGroup.get();CatalogAttempt secure=new CatalogAttempt(address,5*1024*1024,group),fallback=new CatalogAttempt("http://flibusta.is"+url.getFile(),5*1024*1024,group);
         FirstSuccessfulFetch.Result<byte[]> winner=FirstSuccessfulFetch.run(catalogTransports,secure,fallback,650,this::checkCancelled,secure::cancel,fallback::cancel);
         if(winner.alternative)getPreferences(0).edit().putLong("flibustaHttpWorks",System.currentTimeMillis()).apply();return winner.value;
@@ -362,5 +394,5 @@ public class MainActivity extends Activity {
     JSONObject importBytes(byte[] data,String filename,String source)throws Exception{JSONObject b=BookParser.parse(data,filename);b.put("source",source);return saveOriginal(b,data);}
     void event(String type,JSONObject data){runOnUiThread(()->{if(!isFinishing()&&!isDestroyed())web.evaluateJavascript("window.nativeEvent && window.nativeEvent("+JSONObject.quote(type)+","+data.toString()+")",null);});}
     void releaseEvent(JSONObject data){release.event(data);}
-    @Override protected void onDestroy(){release.close();web.removeJavascriptInterface("Native");web.destroy();io.shutdownNow();images.shutdownNow();controls.shutdownNow();catalogTransports.shutdownNow();catalogCacheReads.shutdownNow();catalogRequests.shutdownNow();super.onDestroy();}
+    @Override protected void onDestroy(){flibustaConnection.close();release.close();web.removeJavascriptInterface("Native");web.destroy();io.shutdownNow();images.shutdownNow();controls.shutdownNow();catalogTransports.shutdownNow();catalogCacheReads.shutdownNow();catalogRequests.shutdownNow();super.onDestroy();}
 }

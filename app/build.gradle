@@ -1,7 +1,24 @@
 plugins { id 'com.android.application' }
+def networkDependencies = new groovy.json.JsonSlurper().parse(rootProject.file('tools/network-dependencies.json'))
+configurations { networkBinaries }
+dependencies { networkDependencies.each { networkBinaries "org.briarproject:${it.name}:${it.version}" } }
+def prepareNetwork = tasks.register('prepareNetwork', Sync) {
+    into layout.buildDirectory.dir('generated/network')
+    from { configurations.networkBinaries.collect { zipTree(it) } }
+    doFirst {
+        configurations.networkBinaries.files.each { artifact ->
+            def pin = networkDependencies.find { artifact.name == "${it.name}-${it.version}.jar" }
+            def actual = java.security.MessageDigest.getInstance('SHA-256').digest(artifact.bytes).encodeHex().toString()
+            if (!pin || actual != pin.sha256) throw new GradleException("Checksum mismatch: ${artifact.name}")
+        }
+    }
+}
 android {
     namespace 'by.list.reader'
     compileSdk 35
-    defaultConfig { applicationId 'by.list.reader'; minSdk 26; targetSdk 35; versionCode 7; versionName '0.7.0' }
+    defaultConfig { applicationId 'by.list.reader'; minSdk 26; targetSdk 35; versionCode 8; versionName '0.7.1' }
     compileOptions { sourceCompatibility JavaVersion.VERSION_1_8; targetCompatibility JavaVersion.VERSION_1_8 }
+    sourceSets.main.jniLibs.srcDir layout.buildDirectory.dir('generated/network')
+    packagingOptions { jniLibs { useLegacyPackaging = true } }
 }
+tasks.named('preBuild').configure { dependsOn prepareNetwork }
